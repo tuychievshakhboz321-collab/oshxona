@@ -37,6 +37,30 @@ button, input { font: inherit; color: inherit; }
 .hero .pill { flex: 1; background: rgba(255,255,255,.16); border-radius: 14px; padding: 8px 10px; }
 .hero .pill b { display: block; font-size: 17px; }
 .hero .pill i { font-style: normal; font-size: 12px; opacity: .85; }
+/* daromad ↔ xarajat: halqa + raqamlar */
+.hhead { display: flex; align-items: center; justify-content: space-between; position: relative; z-index: 1; }
+.hbtn { border: 0; border-radius: 999px; padding: 6px 12px; background: rgba(255,255,255,.2); color: #fff; font-weight: 800; font-size: 13px; }
+.cmp { display: flex; align-items: center; gap: 16px; margin: 12px 0 10px; position: relative; z-index: 1; }
+.ringbox { position: relative; width: 118px; height: 118px; flex: none; }
+.ring { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring circle { fill: none; stroke-width: 12; }
+.rbg { stroke: rgba(255,255,255,.18); }
+.rfg { stroke: #7ef0c4; stroke-linecap: round; stroke-dasharray: 314.16; stroke-dashoffset: 314.16;
+  transition: stroke-dashoffset .8s ease, stroke .3s; }
+.rtxt { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
+.rtxt b { font-size: 26px; font-weight: 800; line-height: 1; }
+.rtxt span { font-size: 11px; opacity: .85; margin-top: 3px; }
+.cstat { flex: 1; min-width: 0; display: grid; gap: 7px; }
+.cstat i { display: block; font-style: normal; font-size: 12px; opacity: .85; }
+.cstat b { display: block; font-size: 18px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cs-dx b { color: #b8ffe2; }
+.cs-q.minus b { color: #ffc2b5; }
+.hnote { position: relative; z-index: 1; font-size: 13px; background: rgba(0,0,0,.14); border-radius: 12px; padding: 7px 10px; margin-bottom: 10px; }
+.hnote:empty { display: none; }
+.dxl { list-style: none; padding: 0; margin: 10px 0; }
+.dxl li { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--line); }
+.dxl li b { margin-left: auto; color: var(--accent); }
+.dxl .del { border: 0; background: none; color: var(--hint); font-size: 18px; padding: 4px 6px; }
 
 .card { background: var(--card); border-radius: 18px; padding: 14px; margin-top: 12px;
   box-shadow: 0 1px 0 var(--line); }
@@ -160,11 +184,23 @@ button, input { font: inherit; color: inherit; }
 
 <section class="view on" id="v-asosiy">
   <div class="hero">
-    <small id="h-sana">Bugun</small>
-    <div class="big"><b id="h-bugun">0</b><span>söm</span></div>
+    <div class="hhead"><small id="h-sana">Bugun</small><button class="hbtn" id="dx-btn">＋ Daromad</button></div>
+    <div class="cmp">
+      <div class="ringbox">
+        <svg class="ring" viewBox="0 0 120 120"><circle class="rbg" cx="60" cy="60" r="50"/>
+          <circle class="rfg" id="ring" cx="60" cy="60" r="50"/></svg>
+        <div class="rtxt"><b id="h-foiz">—</b><span id="h-foiz2">sarflandi</span></div>
+      </div>
+      <div class="cstat">
+        <div class="cs-dx"><i>💵 Daromad · <span id="h-oynom">oy</span></i><b id="h-dx">—</b></div>
+        <div class="cs-xr"><i>🛒 Xarajat</i><b id="h-oy">0</b></div>
+        <div class="cs-q"><i id="h-qnom">💰 Qoldi</i><b id="h-qoldi">—</b></div>
+      </div>
+    </div>
+    <div class="hnote" id="h-note"></div>
     <div class="row">
+      <div class="pill"><i>Bugun</i><b id="h-bugun">0</b></div>
       <div class="pill"><i>Şu hafta</i><b id="h-hafta">0</b></div>
-      <div class="pill"><i id="h-oynom">Şu oy</i><b id="h-oy">0</b></div>
     </div>
   </div>
 
@@ -257,13 +293,24 @@ const store = {
   }),
 };
 const DATA = {};   // "2026-11-02" → [[id, summa, izoh, "14:30"], ...]
+const INC = {};    // oylik daromad: "2026-11" → [[id, summa, izoh], ...]  (kalit "dx_2026-11")
 
 async function load() {
-  const keys = (await store.keys()).filter((k) => /^d_\d{4}-\d{2}-\d{2}$/.test(k));
+  const keys = (await store.keys()).filter((k) => /^d_\d{4}-\d{2}-\d{2}$|^dx_\d{4}-\d{2}$/.test(k));
   for (let i = 0; i < keys.length; i += 50) {
     const part = await store.getMany(keys.slice(i, i + 50));
-    for (const k in part) { try { const v = JSON.parse(part[k] || "[]"); if (v.length) DATA[k.slice(2)] = v; } catch (e) {} }
+    for (const k in part) {
+      try { const v = JSON.parse(part[k] || "[]"); if (!v.length) continue;
+        if (k.indexOf("dx_") === 0) INC[k.slice(3)] = v; else DATA[k.slice(2)] = v; } catch (e) {}
+    }
   }
+}
+const monthKey = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+const incSum = (m) => (INC[m] || []).reduce((s, r) => s + r[1], 0);
+async function saveInc(m) {
+  const v = INC[m] && INC[m].length ? JSON.stringify(INC[m]) : "";
+  if (!v) delete INC[m];
+  await store.set("dx_" + m, v);
 }
 async function saveDay(day) {
   const v = DATA[day] && DATA[day].length ? JSON.stringify(DATA[day]) : "";
@@ -290,8 +337,24 @@ function renderMain() {
   $("h-sana").textContent = "Bugun · " + kunNomi(t) + ", " + HAFTA[(t.getDay() + 6) % 7].toLowerCase();
   $("h-bugun").textContent = pul(daySum(ti));
   $("h-hafta").textContent = pul(rangeSum(wk, t));
-  $("h-oynom").textContent = OYLAR[t.getMonth()][0].toUpperCase() + OYLAR[t.getMonth()].slice(1);
-  $("h-oy").textContent = pul(rangeSum(new Date(t.getFullYear(), t.getMonth(), 1), t));
+  $("h-oynom").textContent = OYLAR[t.getMonth()];
+  // daromad ↔ xarajat (şu oy): halqa — daromadning necha foizi sarflangan
+  const xr = rangeSum(new Date(t.getFullYear(), t.getMonth(), 1), new Date(t.getFullYear(), t.getMonth() + 1, 0));
+  const dx = incSum(monthKey(t)), qoldi = dx - xr;
+  const daysLeft = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate() - t.getDate() + 1;
+  $("h-oy").textContent = pul(xr);
+  $("h-dx").textContent = dx ? pul(dx) : "kiritilmagan";
+  $("h-qoldi").textContent = dx ? pul(Math.abs(qoldi)) : "—";
+  $("h-qnom").textContent = dx && qoldi < 0 ? "⚠️ Ortiqça sarf" : "💰 Qoldi";
+  document.querySelector(".cs-q").classList.toggle("minus", dx > 0 && qoldi < 0);
+  const f = dx ? xr / dx : 0, ring = $("ring");
+  ring.style.strokeDashoffset = String(314.16 * (1 - Math.min(1, Math.max(0, f))));
+  ring.style.stroke = !dx ? "rgba(255,255,255,.35)" : f < .7 ? "#7ef0c4" : f < .9 ? "#f3c96b" : "#ff8a70";
+  $("h-foiz").textContent = dx ? Math.round(f * 100) + "%" : "＋";
+  $("h-foiz2").textContent = dx ? "sarflandi" : "daromad";
+  $("h-note").textContent = !dx ? "💡 Oylik daromadni kiriting — xarajat bilan taqqoslab boriladi"
+    : qoldi < 0 ? "⚠️ Bu oy daromaddan " + pul(-qoldi) + " söm köp sarflandi"
+    : "📅 Oy oxirigaça " + daysLeft + " kun · kuniga ~" + pul(qoldi / daysLeft) + " söm sarflasa böladi";
   const d = parse(selDay);
   $("t-list").textContent = selDay === ti ? "🧾 Bugungi yozuvlar" : "🧾 " + kunNomi(d, true) + " yozuvlari";
   const rows = (DATA[selDay] || []).slice().reverse();
@@ -467,6 +530,38 @@ const sheetBg = $("sheet-bg"), sheetEl = $("sheet");
 function openSheet(html) { sheetEl.innerHTML = html; sheetBg.classList.add("on"); }
 function closeSheet() { sheetBg.classList.remove("on"); stopRec(true); }
 sheetBg.addEventListener("click", (e) => { if (e.target === sheetBg) closeSheet(); });
+
+/* ── 💵 oylik daromad: kiritiş oynasi (şu oy uçun bir neçta yozuv: oylik, bonus...) */
+function openIncome() {
+  haptic();
+  const t = today(), m = monthKey(t), nom = OYLAR[t.getMonth()][0].toUpperCase() + OYLAR[t.getMonth()].slice(1) + " " + t.getFullYear();
+  const rows = INC[m] || [];
+  openSheet(`<h2>💵 Daromad · ${nom}</h2><p>Şu oyda tuşgan pul — xarajat bilan taqqoslanadi.</p>
+    <ul class="dxl">${rows.map((r) => `<li><span>${esc(r[2] || "Daromad")}</span><b>${pul(r[1])}</b>
+      <button class="del" data-dx="${r[0]}" aria-label="Öçiriş">✕</button></li>`).join("") ||
+      `<li class="empty">Hali kiritilmagan</li>`}
+      ${rows.length > 1 ? `<li><span>Jami</span><b>${pul(incSum(m))} söm</b></li>` : ""}</ul>
+    <div class="amount"><input id="dx-amt" inputmode="numeric" placeholder="0" autocomplete="off"><span>söm</span></div>
+    <div class="chips" id="dx-chips">${["Oylik", "Avans", "Bonus", "Qöşimça"].map((c) => `<button class="chip" data-n="${c}">${c}</button>`).join("")}</div>
+    <div class="meta"><input class="note" id="dx-note" placeholder="Nomi (Oylik, Bonus...)" maxlength="40"></div>
+    <button class="save" id="dx-save" disabled>Qöşiş</button><button class="ghost" id="cls">Yopiş</button>`);
+  const a = $("dx-amt"), val = () => parseInt(a.value.replace(/\D/g, ""), 10) || 0;
+  a.addEventListener("input", () => { const v = val(); a.value = v ? pul(v) : ""; $("dx-save").disabled = !v; });
+  $("dx-chips").onclick = (e) => { const b = e.target.closest("[data-n]"); if (!b) return;
+    document.querySelectorAll("#dx-chips .chip").forEach((x) => x.classList.toggle("on", x === b)); $("dx-note").value = b.dataset.n; haptic(); };
+  $("dx-save").onclick = async () => {
+    const v = val(); if (!v) return;
+    (INC[m] = INC[m] || []).push([Date.now().toString(36), v, $("dx-note").value.trim() || "Daromad"]);
+    await saveInc(m); haptic("ok"); toast("💵 " + pul(v) + " söm daromad qöşildi"); renderMain(); openIncome();
+  };
+  sheetEl.querySelectorAll("[data-dx]").forEach((b) => b.onclick = async () => {
+    INC[m] = (INC[m] || []).filter((r) => r[0] !== b.dataset.dx); await saveInc(m); haptic(); renderMain(); openIncome();
+  });
+  $("cls").onclick = closeSheet;
+  setTimeout(() => a.focus(), 250);
+}
+$("dx-btn").addEventListener("click", openIncome);
+document.querySelector(".ringbox").addEventListener("click", openIncome);
 
 function payHtml(t, o) {
   const karta = String(t.karta || "");
