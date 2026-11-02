@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Oşxona hisobi</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+/* Telegram mavzusi ranglari (ilovadan tashqarida — zaxira qiymatlar) */
+:root {
+  --bg: var(--tg-theme-secondary-bg-color, #eef2f6);
+  --card: var(--tg-theme-bg-color, #ffffff);
+  --text: var(--tg-theme-text-color, #14202e);
+  --hint: var(--tg-theme-hint-color, #7b8794);
+  --accent: #0f9aa0;
+  --accent2: #e8a317;
+  --red: #e2543c;
+  --line: color-mix(in srgb, var(--hint) 22%, transparent);
+  --soft: color-mix(in srgb, var(--accent) 12%, var(--card));
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.4 -apple-system, "Segoe UI", Roboto, system-ui, sans-serif; }
+body { padding: 0 0 calc(76px + env(safe-area-inset-bottom)); min-height: 100vh; }
+button, input { font: inherit; color: inherit; }
+.wrap { max-width: 520px; margin: 0 auto; padding: 14px 14px 0; }
+
+/* sarlavha */
+.hero { position: relative; border-radius: 22px; padding: 18px 18px 16px; color: #fff; overflow: hidden;
+  background: linear-gradient(135deg, #0c4a5a, #0f9aa0 60%, #2fc0b0); box-shadow: 0 10px 26px rgba(15,154,160,.28); }
+.hero::after { content: ""; position: absolute; right: -40px; top: -40px; width: 170px; height: 170px; border-radius: 50%;
+  background: rgba(255,255,255,.09); }
+.hero small { opacity: .85; font-size: 13px; letter-spacing: .03em; }
+.hero .big { font-size: 34px; font-weight: 800; letter-spacing: -.5px; margin: 2px 0 10px; }
+.hero .big span { font-size: 16px; font-weight: 600; opacity: .8; margin-left: 4px; }
+.hero .row { display: flex; gap: 10px; position: relative; z-index: 1; }
+.hero .pill { flex: 1; background: rgba(255,255,255,.16); border-radius: 14px; padding: 8px 10px; }
+.hero .pill b { display: block; font-size: 17px; }
+.hero .pill i { font-style: normal; font-size: 12px; opacity: .85; }
+
+.card { background: var(--card); border-radius: 18px; padding: 14px; margin-top: 12px;
+  box-shadow: 0 1px 0 var(--line); }
+.card h3 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--hint); }
+
+/* kiritiş */
+.amount { display: flex; align-items: baseline; gap: 6px; border-bottom: 2px solid var(--line); padding: 2px 2px 6px; }
+.amount:focus-within { border-color: var(--accent); }
+.amount input { flex: 1; min-width: 0; border: 0; background: none; outline: none; font-size: 32px; font-weight: 800; }
+.amount span { color: var(--hint); font-weight: 600; }
+.chips { display: flex; gap: 8px; overflow-x: auto; padding: 10px 0 2px; scrollbar-width: none; }
+.chip { flex: none; border: 0; border-radius: 999px; padding: 7px 13px; background: var(--soft); color: var(--accent);
+  font-weight: 700; font-size: 14px; }
+.chip.on { background: var(--accent); color: #fff; }
+.meta { display: flex; gap: 8px; margin-top: 10px; }
+.meta input { border: 1px solid var(--line); background: var(--bg); border-radius: 12px; padding: 10px 12px; outline: none; }
+.meta .note { flex: 1; min-width: 0; }
+.meta input[type=date] { width: 150px; }
+.save { width: 100%; margin-top: 12px; border: 0; border-radius: 14px; padding: 14px; font-size: 16px; font-weight: 800;
+  color: #fff; background: linear-gradient(135deg, #0f9aa0, #0c7f86); box-shadow: 0 6px 16px rgba(15,154,160,.3); }
+.save:disabled { opacity: .45; box-shadow: none; }
+.save:active { transform: scale(.98); }
+
+/* röyxat */
+.list { list-style: none; margin: 0; padding: 0; }
+.list li { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); }
+.list li:first-child { border-top: 0; }
+.list .ic { width: 36px; height: 36px; border-radius: 12px; background: var(--soft); display: grid; place-items: center; font-size: 18px; }
+.list .tx { flex: 1; min-width: 0; }
+.list .tx b { display: block; }
+.list .tx small { color: var(--hint); }
+.list .sum { font-weight: 800; white-space: nowrap; }
+.list .neg { color: var(--red); }
+.list .del { border: 0; background: none; color: var(--hint); font-size: 18px; padding: 4px 6px; }
+.empty { color: var(--hint); text-align: center; padding: 14px 0 6px; }
+
+/* kalendar */
+.calhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.calhead b { font-size: 17px; }
+.nav { border: 0; background: var(--soft); color: var(--accent); width: 36px; height: 36px; border-radius: 12px; font-size: 18px; font-weight: 800; }
+.grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.wd { text-align: center; font-size: 11px; font-weight: 700; color: var(--hint); padding: 2px 0 4px; }
+.day { border: 0; background: var(--bg); border-radius: 12px; min-height: 50px; padding: 5px 2px 4px;
+  display: flex; flex-direction: column; align-items: center; justify-content: space-between; }
+.day .n { font-weight: 700; font-size: 14px; }
+.day .s { font-size: 9.5px; font-weight: 700; color: var(--accent); white-space: nowrap; }
+.day.out { visibility: hidden; }
+.day.today .n { color: var(--accent2); }
+.day.in { background: color-mix(in srgb, var(--accent) 22%, var(--card)); border-radius: 4px; }
+.day.edge { background: var(--accent); color: #fff; }
+.day.edge .s { color: #fff; }
+.calhint { color: var(--hint); font-size: 13px; margin: 10px 0 0; text-align: center; }
+.quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
+.quick .chip { padding: 8px 4px; }
+
+/* hisobot */
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.stat { background: var(--bg); border-radius: 14px; padding: 10px 12px; }
+.stat i { font-style: normal; color: var(--hint); font-size: 12px; }
+.stat b { display: block; font-size: 18px; }
+.stat.main { grid-column: 1 / -1; background: var(--soft); }
+.stat.main b { font-size: 26px; color: var(--accent); }
+.bars { display: flex; align-items: flex-end; gap: 3px; height: 110px; margin-top: 14px; padding-top: 6px; }
+.bar { flex: 1; min-width: 3px; background: linear-gradient(to top, #0f9aa0, #3fd0c0); border-radius: 4px 4px 2px 2px; position: relative; }
+.bar.max { background: linear-gradient(to top, #c98a12, #f3c96b); }
+.bar.zero { background: var(--line); min-height: 2px; }
+.barx { display: flex; justify-content: space-between; color: var(--hint); font-size: 11px; margin-top: 4px; }
+.days { margin-top: 10px; }
+.days li .ic { font-size: 12px; font-weight: 800; color: var(--accent); }
+
+/* pastki tablar */
+.tabs { position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; gap: 8px;
+  padding: 8px 14px calc(8px + env(safe-area-inset-bottom)); background: var(--card); box-shadow: 0 -1px 0 var(--line); }
+.tab { flex: 1; max-width: 170px; border: 0; background: none; border-radius: 14px; padding: 8px; color: var(--hint);
+  font-weight: 700; font-size: 13px; display: grid; justify-items: center; gap: 1px; }
+.tab span { font-size: 20px; }
+.tab.on { background: var(--soft); color: var(--accent); }
+.view { display: none; }
+.view.on { display: block; animation: up .22s ease; }
+@keyframes up { from { opacity: 0; transform: translateY(6px); } }
+.toast { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%) translateY(20px); opacity: 0; transition: .25s;
+  background: #14202e; color: #fff; padding: 10px 16px; border-radius: 14px; font-weight: 700; pointer-events: none; z-index: 9; }
+.toast.on { opacity: 1; transform: translateX(-50%); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<section class="view on" id="v-asosiy">
+  <div class="hero">
+    <small id="h-sana">Bugun</small>
+    <div class="big"><b id="h-bugun">0</b><span>söm</span></div>
+    <div class="row">
+      <div class="pill"><i>Şu hafta</i><b id="h-hafta">0</b></div>
+      <div class="pill"><i id="h-oynom">Şu oy</i><b id="h-oy">0</b></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>➕ Yangi yozuv</h3>
+    <div class="amount"><input id="amt" inputmode="numeric" placeholder="0" autocomplete="off"><span>söm</span></div>
+    <div class="chips" id="chips"></div>
+    <div class="meta">
+      <input class="note" id="note" placeholder="Izoh (ixtiyoriy)" maxlength="80">
+      <input type="date" id="kun">
+    </div>
+    <button class="save" id="save" disabled>Saqlaş</button>
+  </div>
+
+  <div class="card">
+    <h3 id="t-list">🧾 Bugungi yozuvlar</h3>
+    <ul class="list" id="list"></ul>
+  </div>
+</section>
+
+<section class="view" id="v-kalendar">
+  <div class="card">
+    <div class="calhead">
+      <button class="nav" id="prev">‹</button><b id="oy-nomi"></b><button class="nav" id="next">›</button>
+    </div>
+    <div class="grid" id="grid"></div>
+    <p class="calhint" id="calhint">Boşlaniş va tugaş kunini bosing</p>
+    <div class="quick">
+      <button class="chip" data-q="bugun">Bugun</button><button class="chip" data-q="hafta">Hafta</button>
+      <button class="chip" data-q="oy">Şu oy</button><button class="chip" data-q="otgan">Ötgan oy</button>
+    </div>
+  </div>
+  <div class="card" id="report" hidden>
+    <h3 id="r-title"></h3>
+    <div class="stats">
+      <div class="stat main"><i>Jami</i><b id="r-jami"></b></div>
+      <div class="stat"><i>Kunlik örtaça</i><b id="r-ort"></b></div>
+      <div class="stat"><i>Eng köp</i><b id="r-max"></b></div>
+    </div>
+    <div class="bars" id="bars"></div>
+    <div class="barx"><span id="bx1"></span><span id="bx2"></span></div>
+    <ul class="list days" id="r-days"></ul>
+  </div>
+</section>
+
+</div>
+
+<nav class="tabs">
+  <button class="tab on" data-v="asosiy"><span>💰</span>Asosiy</button>
+  <button class="tab" data-v="kalendar"><span>📅</span>Kalendar</button>
+</nav>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const tg = window.Telegram && Telegram.WebApp;
+const OYLAR = ["yanvar","fevral","mart","aprel","may","iyun","iyul","avgust","sentabr","oktabr","noyabr","dekabr"];
+const HAFTA = ["Duşanba","Seşanba","Çorşanba","Payşanba","Juma","Şanba","Yakşanba"];
+const WD = ["Du","Se","Ço","Pa","Ju","Şa","Ya"];
+const $ = (id) => document.getElementById(id);
+const pul = (n) => (n < 0 ? "−" : "") + Math.abs(Math.round(n)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+const qisqa = (n) => Math.abs(n) >= 1e6 ? (n / 1e6).toFixed(Math.abs(n) >= 1e7 ? 0 : 1).replace(".0", "") + "M"
+  : Math.abs(n) >= 1000 ? Math.round(n / 1000) + "k" : String(n);
+const iso = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+const parse = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const kunNomi = (d, yil) => d.getDate() + "-" + OYLAR[d.getMonth()] + (yil ? " " + d.getFullYear() : "");
+const haptic = (t) => { try { tg && tg.HapticFeedback && (t === "ok" ? tg.HapticFeedback.notificationOccurred("success") : tg.HapticFeedback.impactOccurred("light")); } catch (e) {} };
+const toast = (t) => { const el = $("toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove("on"), 1600); };
+
+/* ── saqlaş: Telegram CloudStorage (har kun — alohida kalit "d_YYYY-MM-DD"), ilovadan tashqarida — localStorage */
+const cloud = tg && tg.CloudStorage && tg.isVersionAtLeast && tg.isVersionAtLeast("6.9") ? tg.CloudStorage : null;
+const store = {
+  keys: () => new Promise((ok) => {
+    if (!cloud) { const k = []; try { for (let i = 0; i < localStorage.length; i++) k.push(localStorage.key(i)); } catch (e) {} return ok(k); }
+    cloud.getKeys((err, k) => ok(err ? [] : k));
+  }),
+  getMany: (keys) => new Promise((ok) => {
+    if (!cloud) { const o = {}; try { keys.forEach((k) => o[k] = localStorage.getItem(k)); } catch (e) {} return ok(o); }
+    if (!keys.length) return ok({});
+    cloud.getItems(keys, (err, o) => ok(err ? {} : o));
+  }),
+  set: (k, v) => new Promise((ok, no) => {
+    if (!cloud) { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (e) {} return ok(); }
+    if (!v) return cloud.removeItem(k, (err) => err ? no(err) : ok());
+    cloud.setItem(k, v, (err) => err ? no(err) : ok());
+  }),
+};
+const DATA = {};   // "2026-11-02" → [[id, summa, izoh, "14:30"], ...]
+
+async function load() {
+  const keys = (await store.keys()).filter((k) => /^d_\d{4}-\d{2}-\d{2}$/.test(k));
+  for (let i = 0; i < keys.length; i += 50) {
+    const part = await store.getMany(keys.slice(i, i + 50));
+    for (const k in part) { try { const v = JSON.parse(part[k] || "[]"); if (v.length) DATA[k.slice(2)] = v; } catch (e) {} }
+  }
+}
+async function saveDay(day) {
+  const v = DATA[day] && DATA[day].length ? JSON.stringify(DATA[day]) : "";
+  if (!v) delete DATA[day];
+  await store.set("d_" + day, v);
+}
+const daySum = (day) => (DATA[day] || []).reduce((s, r) => s + r[1], 0);
+function rangeSum(a, b) { let s = 0; for (let d = new Date(a); d <= b; d = addDays(d, 1)) s += daySum(iso(d)); return s; }
+
+async function addEntry(summa, izoh, day) {
+  const now = new Date();
+  (DATA[day] = DATA[day] || []).push([now.getTime().toString(36), summa, izoh,
+    String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0")]);
+  await saveDay(day);
+}
+
+/* ── asosiy ekran */
+const today = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
+let selDay = iso(today());
+
+function renderMain() {
+  const t = today(), ti = iso(t);
+  const wk = addDays(t, -((t.getDay() + 6) % 7));
+  $("h-sana").textContent = "Bugun · " + kunNomi(t) + ", " + HAFTA[(t.getDay() + 6) % 7].toLowerCase();
+  $("h-bugun").textContent = pul(daySum(ti));
+  $("h-hafta").textContent = pul(rangeSum(wk, t));
+  $("h-oynom").textContent = OYLAR[t.getMonth()][0].toUpperCase() + OYLAR[t.getMonth()].slice(1);
+  $("h-oy").textContent = pul(rangeSum(new Date(t.getFullYear(), t.getMonth(), 1), t));
+  const d = parse(selDay);
+  $("t-list").textContent = selDay === ti ? "🧾 Bugungi yozuvlar" : "🧾 " + kunNomi(d, true) + " yozuvlari";
+  const rows = (DATA[selDay] || []).slice().reverse();
+  $("list").innerHTML = rows.length ? rows.map((r) =>
+    `<li><div class="ic">${r[1] < 0 ? "➖" : "🍽"}</div><div class="tx"><b>${esc(r[2] || "Yozuv")}</b><small>${r[3]}</small></div>
+     <div class="sum ${r[1] < 0 ? "neg" : ""}">${pul(r[1])}</div><button class="del" data-id="${r[0]}" aria-label="Öçiriş">✕</button></li>`).join("")
+    : `<li class="empty">Hali yozuv yöq — yuqoridan qöşing</li>`;
+}
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+const amt = $("amt");
+const amtVal = () => parseInt(amt.value.replace(/\D/g, ""), 10) || 0;
+function fmtAmt() { const v = amtVal(); amt.value = v ? pul(v) : ""; $("save").disabled = !v; }
+amt.addEventListener("input", fmtAmt);
+const CHIPS = [5000, 10000, 20000, 40000, 50000, 100000];
+$("chips").innerHTML = CHIPS.map((c) => `<button class="chip" data-a="${c}">+${qisqa(c)}</button>`).join("");
+$("chips").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-a]"); if (!b) return;
+  amt.value = pul(amtVal() + +b.dataset.a); fmtAmt(); haptic();
+});
+$("kun").addEventListener("change", (e) => { if (e.target.value) { selDay = e.target.value; renderMain(); } });
+$("save").addEventListener("click", async () => {
+  const v = amtVal(); if (!v) return;
+  $("save").disabled = true;
+  try {
+    await addEntry(v, $("note").value.trim(), selDay);
+    haptic("ok"); toast("✅ " + pul(v) + " söm yozildi");
+    amt.value = ""; $("note").value = ""; fmtAmt(); renderMain(); renderCal();
+  } catch (e) { toast("Saqlab bölmadi: " + e); $("save").disabled = false; }
+});
+$("list").addEventListener("click", async (e) => {
+  const b = e.target.closest(".del"); if (!b) return;
+  const go = async () => {
+    DATA[selDay] = (DATA[selDay] || []).filter((r) => r[0] !== b.dataset.id);
+    await saveDay(selDay); haptic(); toast("🗑 Öçirildi"); renderMain(); renderCal();
+  };
+  if (tg && tg.showConfirm) tg.showConfirm("Yozuv öçirilsinmi?", (ok) => ok && go()); else if (confirm("Yozuv öçirilsinmi?")) go();
+});
+
+/* ── kalendar va hisobot */
+let calY, calM, rA = null, rB = null;
+function renderCal() {
+  const t = today();
+  $("oy-nomi").textContent = OYLAR[calM][0].toUpperCase() + OYLAR[calM].slice(1) + " " + calY;
+  const first = new Date(calY, calM, 1), off = (first.getDay() + 6) % 7, n = new Date(calY, calM + 1, 0).getDate();
+  let h = WD.map((w) => `<div class="wd">${w}</div>`).join("");
+  for (let i = 0; i < off; i++) h += `<div class="day out"></div>`;
+  for (let d = 1; d <= n; d++) {
+    const dt = new Date(calY, calM, d), k = iso(dt), s = daySum(k);
+    let c = "day";
+    if (+dt === +t) c += " today";
+    if (rA && rB && dt > rA && dt < rB) c += " in";
+    if ((rA && +dt === +rA) || (rB && +dt === +rB)) c += " edge";
+    h += `<button class="${c}" data-d="${k}"><span class="n">${d}</span><span class="s">${s ? qisqa(s) : ""}</span></button>`;
+  }
+  $("grid").innerHTML = h;
+  $("calhint").textContent = rA && !rB ? "Endi tugaş kunini bosing" : "Boşlaniş va tugaş kunini bosing";
+}
+$("prev").onclick = () => { calM--; if (calM < 0) { calM = 11; calY--; } renderCal(); haptic(); };
+$("next").onclick = () => { calM++; if (calM > 11) { calM = 0; calY++; } renderCal(); haptic(); };
+$("grid").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-d]"); if (!b) return;
+  const d = parse(b.dataset.d); haptic();
+  if (!rA || rB) { rA = d; rB = null; $("report").hidden = true; }
+  else { if (d < rA) { rB = rA; rA = d; } else rB = d; report(rA, rB); }
+  renderCal();
+});
+document.querySelector(".quick").addEventListener("click", (e) => {
+  const q = e.target.dataset.q; if (!q) return;
+  const t = today(); let a, b = t;
+  if (q === "bugun") a = t;
+  if (q === "hafta") a = addDays(t, -((t.getDay() + 6) % 7));
+  if (q === "oy") a = new Date(t.getFullYear(), t.getMonth(), 1);
+  if (q === "otgan") { a = new Date(t.getFullYear(), t.getMonth() - 1, 1); b = new Date(t.getFullYear(), t.getMonth(), 0); }
+  rA = a; rB = b; calY = a.getFullYear(); calM = a.getMonth(); haptic(); renderCal(); report(a, b);
+});
+
+function report(a, b) {
+  const days = [];
+  for (let d = new Date(a); d <= b; d = addDays(d, 1)) days.push([new Date(d), daySum(iso(d))]);
+  const jami = days.reduce((s, x) => s + x[1], 0), max = days.reduce((m, x) => x[1] > m[1] ? x : m, days[0]);
+  const same = +a === +b, sameM = a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear();
+  $("r-title").textContent = "📊 " + (same ? kunNomi(a, true) : sameM ? a.getDate() + "–" + b.getDate() + "-" + OYLAR[a.getMonth()] + " " + a.getFullYear()
+    : kunNomi(a, a.getFullYear() !== b.getFullYear()) + " – " + kunNomi(b, true)) + " · " + days.length + " kun";
+  $("r-jami").textContent = pul(jami) + " söm";
+  $("r-ort").textContent = pul(jami / days.length);
+  $("r-max").textContent = max[1] ? pul(max[1]) : "—";
+  const top = Math.max(1, ...days.map((x) => x[1]));
+  const show = days.length > 62 ? [] : days;
+  $("bars").innerHTML = show.map((x) => `<div class="bar ${x[1] <= 0 ? "zero" : ""} ${x[1] && x === max ? "max" : ""}"
+    style="height:${Math.max(0, x[1]) / top * 100}%" title="${kunNomi(x[0])}: ${pul(x[1])}"></div>`).join("");
+  $("bars").hidden = !show.length;
+  $("bx1").textContent = show.length ? kunNomi(a) : ""; $("bx2").textContent = show.length ? kunNomi(b) : "";
+  const withSum = days.filter((x) => x[1]);
+  $("r-days").innerHTML = withSum.length ? withSum.slice().reverse().map((x) =>
+    `<li><div class="ic">${x[0].getDate()}</div><div class="tx"><b>${kunNomi(x[0])}</b><small>${HAFTA[(x[0].getDay() + 6) % 7]} · ${(DATA[iso(x[0])] || []).length} ta yozuv</small></div><div class="sum">${pul(x[1])}</div></li>`).join("")
+    : `<li class="empty">Bu davrda yozuv yöq</li>`;
+  $("report").hidden = false;
+  setTimeout(() => $("report").scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+}
+
+/* ── tablar */
+document.querySelector(".tabs").addEventListener("click", (e) => {
+  const b = e.target.closest(".tab"); if (!b) return;
+  document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("on", x === b));
+  document.querySelectorAll(".view").forEach((v) => v.classList.toggle("on", v.id === "v-" + b.dataset.v));
+  haptic(); window.scrollTo(0, 0);
+});
+
+/* ── ishga tuşiriş; ?add=40000&izoh=...&kun=YYYY-MM-DD — bot çatidan "ilovaga yozish" tugmasi */
+(async function () {
+  if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor("#0c4a5a"); } catch (e) {} }
+  const t = today(); calY = t.getFullYear(); calM = t.getMonth(); $("kun").value = selDay;
+  await load();
+  const p = new URLSearchParams(location.search);
+  const add = parseInt(p.get("add") || "", 10), ref = p.get("ref");
+  if (add && !(ref && localStorage.getItem("ref_" + ref))) {
+    const day = /^\d{4}-\d{2}-\d{2}$/.test(p.get("kun") || "") ? p.get("kun") : iso(t);
+    if (!(ref && Object.values(DATA).some((rows) => rows.some((r) => r[0] === "b" + ref)))) {
+      await addEntry(add, (p.get("izoh") || "").slice(0, 80), day);
+      if (ref) { const rows = DATA[day]; rows[rows.length - 1][0] = "b" + ref; await saveDay(day); }
+      toast("✅ " + pul(add) + " söm qöşildi"); haptic("ok");
+    }
+    try { ref && localStorage.setItem("ref_" + ref, "1"); } catch (e) {}
+  }
+  renderMain(); renderCal();
+})();
+</script>
+</body>
+</html>
