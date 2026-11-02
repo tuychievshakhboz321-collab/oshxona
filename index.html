@@ -47,6 +47,39 @@ button, input { font: inherit; color: inherit; }
 .amount:focus-within { border-color: var(--accent); }
 .amount input { flex: 1; min-width: 0; border: 0; background: none; outline: none; font-size: 32px; font-weight: 800; }
 .amount span { color: var(--hint); font-weight: 600; }
+.mic { flex: none; align-self: center; width: 46px; height: 46px; border: 0; border-radius: 50%; margin-left: 6px;
+  background: linear-gradient(135deg, #e2543c, #f08a3c); color: #fff; font-size: 21px; position: relative;
+  box-shadow: 0 6px 14px rgba(226,84,60,.35); }
+.mic.locked::after { content: "🔒"; position: absolute; right: -4px; bottom: -4px; font-size: 13px; background: var(--card);
+  border-radius: 50%; width: 20px; height: 20px; display: grid; place-items: center; }
+.vlimit { margin-top: 8px; font-size: 12px; color: var(--hint); text-align: right; min-height: 15px; }
+
+/* pastdan çiqadigan oyna (tölov / yozib oliş) */
+.sheet-bg { position: fixed; inset: 0; background: rgba(10,20,30,.45); z-index: 20; display: none; align-items: flex-end; }
+.sheet-bg.on { display: flex; animation: fade .2s; }
+@keyframes fade { from { opacity: 0; } }
+.sheet { width: 100%; max-width: 520px; margin: 0 auto; background: var(--card); border-radius: 22px 22px 0 0;
+  padding: 18px 18px calc(18px + env(safe-area-inset-bottom)); animation: rise .25s ease; }
+@keyframes rise { from { transform: translateY(40px); } }
+.sheet h2 { margin: 0 0 4px; font-size: 20px; }
+.sheet p { margin: 6px 0; color: var(--hint); }
+.price { font-size: 30px; font-weight: 800; color: var(--accent); margin: 10px 0 2px; }
+.price span { font-size: 15px; color: var(--hint); font-weight: 600; }
+.cardbox { display: flex; align-items: center; gap: 10px; background: var(--bg); border-radius: 14px; padding: 12px; margin: 12px 0 6px; }
+.cardbox b { flex: 1; font-size: 18px; letter-spacing: 1px; font-variant-numeric: tabular-nums; }
+.cardbox small { display: block; color: var(--hint); font-size: 13px; letter-spacing: 0; font-weight: 600; }
+.copy { border: 0; background: var(--soft); color: var(--accent); border-radius: 10px; padding: 8px 12px; font-weight: 700; }
+.steps { margin: 10px 0 0; padding-left: 20px; color: var(--text); }
+.steps li { margin: 4px 0; }
+.ghost { width: 100%; margin-top: 8px; border: 0; background: none; color: var(--hint); padding: 10px; font-weight: 700; }
+.rec { text-align: center; padding: 10px 0 4px; }
+.rec .dot { width: 96px; height: 96px; margin: 8px auto 12px; border-radius: 50%; display: grid; place-items: center; font-size: 40px;
+  color: #fff; background: radial-gradient(circle, #f05a3c, #c8381f); animation: pulse 1.2s infinite; border: 0; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(226,84,60,.5); } 100% { box-shadow: 0 0 0 26px rgba(226,84,60,0); } }
+.rec .t { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.rec.busy .dot { animation: none; background: var(--accent); }
+.found { list-style: none; padding: 0; margin: 10px 0 0; text-align: left; }
+.found li { display: flex; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--line); }
 .chips { display: flex; gap: 8px; overflow-x: auto; padding: 10px 0 2px; scrollbar-width: none; }
 .chip { flex: none; border: 0; border-radius: 999px; padding: 7px 13px; background: var(--soft); color: var(--accent);
   font-weight: 700; font-size: 14px; }
@@ -137,7 +170,9 @@ button, input { font: inherit; color: inherit; }
 
   <div class="card">
     <h3>➕ Yangi yozuv</h3>
-    <div class="amount"><input id="amt" inputmode="numeric" placeholder="0" autocomplete="off"><span>söm</span></div>
+    <div class="amount"><input id="amt" inputmode="numeric" placeholder="0" autocomplete="off"><span>söm</span>
+      <button class="mic locked" id="mic" aria-label="Ovozli kiritiş">🎙</button></div>
+    <div class="vlimit" id="vlimit"></div>
     <div class="chips" id="chips"></div>
     <div class="meta">
       <input class="note" id="note" placeholder="Izoh (ixtiyoriy)" maxlength="80">
@@ -184,6 +219,7 @@ button, input { font: inherit; color: inherit; }
   <button class="tab" data-v="kalendar"><span>📅</span>Kalendar</button>
 </nav>
 <div class="toast" id="toast"></div>
+<div class="sheet-bg" id="sheet-bg"><div class="sheet" id="sheet"></div></div>
 
 <script>
 "use strict";
@@ -371,18 +407,157 @@ document.querySelector(".tabs").addEventListener("click", (e) => {
   const t = today(); calY = t.getFullYear(); calM = t.getMonth(); $("kun").value = selDay;
   await load();
   const p = new URLSearchParams(location.search);
+  // Röyxat: botdan oçilgan havolada reg=1 böladi — bir marta eslab qolinadi. Avval yozuvi borlar ham röyxatda.
+  if (p.get("reg") === "1") { try { await store.set("reg", "1"); } catch (e) {} }
+  else if (cloud && !Object.keys(DATA).length && !(await store.getMany(["reg"])).reg) {
+    document.querySelector(".wrap").innerHTML = `<div class="card" style="margin-top:30vh;text-align:center">
+      <div style="font-size:42px">📱</div><h2 style="margin:6px 0">Avval röyxatdan öting</h2>
+      <p style="color:var(--hint)">Botga <b>/start</b> yozing va «Raqamni yuboriş» tugmasini bosing.</p>
+      <button class="save" onclick="Telegram.WebApp.close()">Botga qaytiş</button></div>`;
+    document.querySelector(".tabs").remove();
+    return;
+  }
+  // bot tugmasidan: bitta summa (add=...) yoki ovozdan bir neçta (items=base64url JSON [[summa, izoh, kun], ...])
+  let list = [];
   const add = parseInt(p.get("add") || "", 10), ref = p.get("ref");
-  if (add && !(ref && localStorage.getItem("ref_" + ref))) {
-    const day = /^\d{4}-\d{2}-\d{2}$/.test(p.get("kun") || "") ? p.get("kun") : iso(t);
-    if (!(ref && Object.values(DATA).some((rows) => rows.some((r) => r[0] === "b" + ref)))) {
-      await addEntry(add, (p.get("izoh") || "").slice(0, 80), day);
-      if (ref) { const rows = DATA[day]; rows[rows.length - 1][0] = "b" + ref; await saveDay(day); }
-      toast("✅ " + pul(add) + " söm qöşildi"); haptic("ok");
-    }
-    try { ref && localStorage.setItem("ref_" + ref, "1"); } catch (e) {}
+  if (add) list = [[add, p.get("izoh") || "", p.get("kun")]];
+  if (p.get("items")) { try { list = JSON.parse(b64url(p.get("items"))); } catch (e) {} }
+  if (list.length && ref) {
+    const done = Object.values(DATA).some((rows) => rows.some((r) => String(r[0]).indexOf("b" + ref) === 0));
+    if (!done) { await addMany(list, "b" + ref); toast("✅ " + list.length + " ta yozuv qöşildi"); haptic("ok"); }
   }
   renderMain(); renderCal();
+  voiceStatus();
 })();
+
+function b64url(s) {
+  const bin = atob(s.replace(/-/g, "+").replace(/_/g, "/"));
+  return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
+}
+async function addMany(list, refPrefix) {
+  const t = iso(today()), touched = new Set();
+  list.forEach((x, i) => {
+    const day = /^\d{4}-\d{2}-\d{2}$/.test(x[2] || "") ? x[2] : t, now = new Date();
+    (DATA[day] = DATA[day] || []).push([(refPrefix || now.getTime().toString(36)) + "_" + i, Math.round(+x[0]), String(x[1] || "").slice(0, 80),
+      String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0")]);
+    touched.add(day);
+  });
+  for (const d of touched) await saveDay(d);
+}
+
+/* ── 🎙 ovozli kiritiş (pullik obuna; server — Google Apps Script) ───────── */
+const API = "https://script.google.com/macros/s/AKfycbxh7hXK9gnMML_-C8B1nTbzS04OzYXNREebAgUqIDKz4rB1GlPS84Vzs0xYRW-CeIGqQw/exec";
+let VS = null;   // {obuna, tolov, maxSec}
+const initData = () => (tg && tg.initData) || "";
+async function api(body) {
+  const r = await fetch(API, { method: "POST", body: JSON.stringify(Object.assign({ initData: initData() }, body)) });
+  return r.json();
+}
+async function voiceStatus() {
+  if (!initData()) { $("vlimit").textContent = ""; return; }
+  try {
+    VS = await api({ act: "holat" });
+    const o = VS.obuna || {};
+    $("mic").classList.toggle("locked", !o.faol);
+    $("vlimit").textContent = o.egasi ? "🎙 Ovozli kiritiş — cheksiz" : o.faol
+      ? "🎙 Limit: $" + o.qoldi.toFixed(2) + " qoldi · " + o.kun + " kun" : "🎙 Ovozli kiritiş — obuna bilan";
+  } catch (e) { $("vlimit").textContent = ""; }
+}
+const sheetBg = $("sheet-bg"), sheetEl = $("sheet");
+function openSheet(html) { sheetEl.innerHTML = html; sheetBg.classList.add("on"); }
+function closeSheet() { sheetBg.classList.remove("on"); stopRec(true); }
+sheetBg.addEventListener("click", (e) => { if (e.target === sheetBg) closeSheet(); });
+
+function payHtml(t, o) {
+  const karta = String(t.karta || "");
+  return `<h2>🎙 Ovozli kiritiş</h2>
+    <p>${o && o.limitTugadi ? "⚠️ Oylik limit tugadi. " : o && o.tugadi ? "⚠️ Obuna muddati tugadi. " : ""}Gapirasiz — ilova xarajatlarni özi ajratib yozadi: <i>«nonga 5 ming, tuşlikka 40 ming»</i>.</p>
+    <div class="price">${pul(t.narx)} <span>söm / ${t.muddat} kun</span></div>
+    <div class="cardbox"><b>${esc(karta)}<small>${esc(t.egasi || "")}</small></b><button class="copy" id="cp">Nusxa</button></div>
+    <ol class="steps"><li>Şu kartaga <b>${pul(t.narx)} söm</b> ötkazing</li><li>Chek rasmini (skrinşot) <b>botga</b> yuboring</li>
+      <li>Tasdiqlangaç 🎙 tugmasi oçiladi</li></ol>
+    <button class="save" id="tobot">Chekni botga yuboriş</button><button class="ghost" id="cls">Keyinroq</button>`;
+}
+$("mic").addEventListener("click", async () => {
+  haptic();
+  if (!initData()) return toast("Telegram ichida oçing");
+  if (!VS) await voiceStatus();
+  if (!VS || !VS.ok) return toast("Server bilan aloqa yöq");
+  if (!VS.obuna.faol) {
+    openSheet(payHtml(VS.tolov, VS.obuna));
+    $("cp").onclick = () => { navigator.clipboard && navigator.clipboard.writeText(String(VS.tolov.karta).replace(/\s/g, "")); toast("📋 Karta nusxalandi"); };
+    $("tobot").onclick = () => { try { tg.close(); } catch (e) {} };
+    $("cls").onclick = closeSheet;
+    return;
+  }
+  startRec();
+});
+
+let rec = null, chunks = [], recT0 = 0, recTimer = null, recStream = null;
+async function startRec() {
+  openSheet(`<div class="rec"><h2>Gapiring…</h2><p>Masalan: «nonga 5 ming, tuşlikka 40 ming, taksi 12 ming»</p>
+    <button class="dot" id="stop">■</button><div class="t" id="rt">0:00</div>
+    <p>Tugatiş uçun ■ ni bosing</p></div><button class="ghost" id="cls">Bekor qiliş</button>`);
+  $("cls").onclick = closeSheet;
+  try {
+    recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    sheetEl.innerHTML = `<h2>🎙 Mikrofon oçilmadi</h2><p>Telegram'ga mikrofon ruxsatini bering yoki <b>botga ovozli xabar</b> yuboring — natija şu yerga tuşadi.</p>
+      <button class="save" id="tobot">Botga ötiş</button><button class="ghost" id="cls">Yopiş</button>`;
+    $("tobot").onclick = () => { try { tg.close(); } catch (e) {} };
+    $("cls").onclick = closeSheet;
+    return;
+  }
+  const type = ["audio/webm;codecs=opus", "audio/mp4", "audio/ogg;codecs=opus", "audio/webm"].find((t) => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || "";
+  rec = new MediaRecorder(recStream, type ? { mimeType: type } : undefined);
+  chunks = [];
+  rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+  rec.onstop = sendRec;
+  rec.start();
+  recT0 = Date.now();
+  const max = (VS && VS.maxSec) || 60;
+  recTimer = setInterval(() => {
+    const s = Math.floor((Date.now() - recT0) / 1000);
+    const el = $("rt"); if (el) el.textContent = Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+    if (s >= max) stopRec();
+  }, 250);
+  $("stop").onclick = () => stopRec();
+}
+function stopRec(cancel) {
+  clearInterval(recTimer);
+  if (rec && rec.state !== "inactive") { rec.cancelled = !!cancel; rec.stop(); }
+  if (recStream) { recStream.getTracks().forEach((t) => t.stop()); recStream = null; }
+}
+async function sendRec() {
+  if (rec.cancelled) return;
+  const sec = Math.max(1, Math.round((Date.now() - recT0) / 1000));
+  const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
+  sheetEl.innerHTML = `<div class="rec busy"><div class="dot">⏳</div><h2>Tinglanmoqda…</h2><p>Bir neça soniya</p></div>`;
+  try {
+    const b64 = await new Promise((ok) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(",")[1]); fr.readAsDataURL(blob); });
+    const r = await api({ act: "ovoz", audio: b64, mime: blob.type, sec: sec });
+    if (!r.ok && r.tolov) { VS = Object.assign(VS || {}, { obuna: r.obuna, tolov: r.tolov }); closeSheet(); return $("mic").click(); }
+    if (!r.ok) throw new Error(r.xato || "xato");
+    if (!r.items.length) {
+      sheetEl.innerHTML = `<h2>🤔 Xarajat topilmadi</h2><p><i>Eşitganim: ${esc(r.text || "—")}</i></p>
+        <button class="save" id="again">Qayta yozish</button><button class="ghost" id="cls">Yopiş</button>`;
+      $("again").onclick = startRec; $("cls").onclick = closeSheet;
+    } else {
+      await addMany(r.items.map((x) => [x.summa, x.izoh, x.kun]));
+      haptic("ok"); renderMain(); renderCal();
+      const jami = r.items.reduce((s, x) => s + x.summa, 0);
+      sheetEl.innerHTML = `<h2>✅ ${r.items.length} ta yozildi</h2><ul class="found">${r.items.map((x) =>
+        `<li><span>${esc(x.izoh || "Xarajat")}</span><b>${pul(x.summa)}</b></li>`).join("")}
+        <li><span>Jami</span><b>${pul(jami)} söm</b></li></ul>
+        <button class="save" id="again">🎙 Yana</button><button class="ghost" id="cls">Yopiş</button>`;
+      $("again").onclick = startRec; $("cls").onclick = closeSheet;
+    }
+    if (r.obuna) { VS.obuna = r.obuna; voiceStatus(); }
+  } catch (e) {
+    sheetEl.innerHTML = `<h2>⚠️ Xatolik</h2><p>${esc(e.message || e)}</p><button class="ghost" id="cls">Yopiş</button>`;
+    $("cls").onclick = closeSheet;
+  }
+}
 </script>
 </body>
 </html>
